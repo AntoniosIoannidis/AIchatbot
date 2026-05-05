@@ -162,6 +162,24 @@ async def chat(request: ChatRequest, user = Depends(get_current_user)):
     
     return ChatResponse(answer=answer, context=contexts)
 
+@app.get("/history")
+async def get_history(user = Depends(get_current_user)):
+    """Retrieves the past chat history for the logged-in user."""
+    try:
+        response = supabase.table("chat_history") \
+            .select("*") \
+            .eq("user_id", user.id) \
+            .order("created_at", desc=True) \
+            .execute()
+        
+        return {"history": response.data}
+    except Exception as e:
+        logger.error(f"Failed to fetch history: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not retrieve chat history"
+        )
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
