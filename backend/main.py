@@ -145,6 +145,21 @@ async def chat(request: ChatRequest, user = Depends(get_current_user)):
     # 3. Generate answer
     answer = generate_answer(request.message, contexts)
     
+    # 4. Save to Chat History (Supabase)
+    try:
+        history_data = {
+            "user_id": user.id,
+            "user_message": request.message,
+            "ai_response": answer,
+            "context_used": contexts # Optional: save what the AI looked at
+        }
+        # Assuming your table is named 'chat_history'
+        supabase.table("chat_history").insert(history_data).execute()
+        logger.info(f"Saved chat history for user {user.id}")
+    except Exception as e:
+        logger.error(f"Failed to save chat history: {e}")
+        # We don't fail the request if history saving fails, but we log it.
+    
     return ChatResponse(answer=answer, context=contexts)
 
 @app.get("/health")
