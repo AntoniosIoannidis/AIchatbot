@@ -3,7 +3,7 @@ import logging
 import json
 import uuid
 import base64
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.responses import StreamingResponse
@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 
 import google.generativeai as genai
 from pinecone import Pinecone
-from sentence_transformers import SentenceTransformer
 from supabase import create_client, Client
 import requests
 from bs4 import BeautifulSoup
@@ -41,18 +40,8 @@ try:
 except Exception as e:
     logger.error(f"Error initializing external services: {e}")
 
-# Global state for lazy-loading the embedding model
-_embedding_model = None
-
-def get_embedding_model():
-    global _embedding_model
-    if _embedding_model is None:
-        logger.info("Loading SentenceTransformer model...")
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedding_model
-
 # FastAPI App
-app = FastAPI(title="AI Chatbot Backend", version="1.2.0")
+app = FastAPI(title="AI Chatbot Backend", version="1.3.0")
 
 # CORS Middleware
 app.add_middleware(
@@ -66,7 +55,7 @@ app.add_middleware(
 # Models
 class ChatRequest(BaseModel):
     message: str
-    image_data: Optional[str] = None # Base64 string
+    image_data: Optional[str] = None
 
 class ScrapeRequest(BaseModel):
     url: str
@@ -76,6 +65,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     try:
+        # Expecting "Bearer <token>"
         token = authorization.split(" ")[1]
         user_resp = supabase.auth.get_user(token)
         return user_resp.user
@@ -84,15 +74,24 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 
 # Helper Functions
 def get_embedding(text: str) -> List[float]:
-    model = get_embedding_model()
-    return model.encode(text).tolist()
+    """Uses Google's Cloud Embedding API (Vercel-friendly, 768 dimensions)."""
+    try:
+        result = genai.embed_content(
+            model="models/text-embedding-004",
+            content=text,
+            task_type="retrieval_query"
+        )
+        return result['embedding']
+    except Exception as e:
+        logger.error(f"Google Embedding error: {e}")
+        raise HTTPException(status_code=500, detail="Embedding generation failed")
 
 def retrieve_context(query_vector: List[float], top_k: int = 3) -> List[str]:
     try:
         results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
         return [match.metadata["text"] for match in results.matches if "text" in match.metadata]
     except Exception as e:
-        logger.error(f"Pinecone error: {e}")
+        logger.error(f"Pinecone query error: {e}")
         return []
 
 async def stream_gemini_response(question: str, contexts: List[str], user_id: str, image_data: Optional[str] = None):
@@ -106,12 +105,12 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
             .limit(5) \
             .execute()
         
-        history_items = history_resp.data[::-1] # Reverse to get chronological order
+        history_items = history_resp.data[::-1] # Reverse for chronological order
         
         # 2. Build Multi-modal Prompt
         model = genai.GenerativeModel("gemini-1.5-flash")
         
-        system_instruction = "You are a helpful AI assistant. Use the context and conversation history to answer."
+        system_instruction = "You are a helpful AI assistant. Use the provided context and conversation history to answer."
         context_str = "\n".join([f"- {c}" for c in contexts])
         history_str = "\n".join([f"User: {h['user_message']}\nAI: {h['ai_response']}" for h in history_items])
         
@@ -121,10 +120,8 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
         
         # 3. Add Image if provided
         if image_data:
-            # Remove header if present (e.g., data:image/png;base64,)
             if "," in image_data:
                 image_data = image_data.split(",")[1]
-            
             image_bytes = base64.b64decode(image_data)
             content_parts.append({"mime_type": "image/jpeg", "data": image_bytes})
         
@@ -151,16 +148,21 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
 # Endpoints
-@app.post("/chat")
+@app.post("/api/chat")
 async def chat_stream(request: ChatRequest, user = Depends(get_current_user)):
+    # 1. Get embedding (now 768 dims)
     query_vec = get_embedding(request.message)
+    
+    # 2. Retrieve context
     contexts = retrieve_context(query_vec)
+    
+    # 3. Stream response
     return StreamingResponse(
         stream_gemini_response(request.message, contexts, user.id, request.image_data),
         media_type="text/event-stream"
     )
 
-@app.post("/scrape")
+@app.post("/api/scrape")
 async def scrape_url(request: ScrapeRequest, user = Depends(get_current_user)):
     try:
         resp = requests.get(request.url, timeout=10)
@@ -168,27 +170,36 @@ async def scrape_url(request: ScrapeRequest, user = Depends(get_current_user)):
         for script in soup(["script", "style"]):
             script.decompose()
         text = soup.get_text(separator=' ', strip=True)
+        
         words = text.split()
         chunks = [" ".join(words[i:i+500]) for i in range(0, len(words), 450)]
+        
         all_upserts = []
-        model = get_embedding_model()
         for i, chunk in enumerate(chunks):
-            vec = model.encode(chunk).tolist()
+            # Using Google Cloud Embeddings for scraping
+            res = genai.embed_content(model="models/text-embedding-004", content=chunk, task_type="retrieval_document")
+            vec = res['embedding']
             all_upserts.append((f"scrape_{uuid.uuid4().hex[:8]}", vec, {"text": chunk, "source": request.url}))
+            
         index.upsert(vectors=all_upserts)
         return {"status": "success", "chunks": len(chunks)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/history")
+@app.get("/api/history")
 async def get_history(user = Depends(get_current_user)):
-    resp = supabase.table("chat_history").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
-    return {"history": resp.data}
+    try:
+        resp = supabase.table("chat_history").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+        return {"history": resp.data}
+    except Exception as e:
+        logger.error(f"History fetch error: {e}")
+        return {"history": []}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health():
     return {"status": "healthy"}
 
+# Local development entry point
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

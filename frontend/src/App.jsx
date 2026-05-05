@@ -114,7 +114,7 @@ export default function App() {
 
   const fetchHistory = async () => {
     try {
-      const { data } = await axios.get(`${BACKEND_URL}/history`, {
+      const { data } = await axios.get(`${BACKEND_URL}/api/history`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       setHistory(data.history || []);
@@ -136,7 +136,7 @@ export default function App() {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat`, {
+      const response = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -189,7 +189,7 @@ export default function App() {
     if (!scrapeUrl.trim()) return;
     setIsScraping(true);
     try {
-      await axios.post(`${BACKEND_URL}/scrape`, 
+      await axios.post(`${BACKEND_URL}/api/scrape`, 
         { url: scrapeUrl },
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       );
