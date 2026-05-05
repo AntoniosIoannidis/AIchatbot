@@ -17,7 +17,8 @@ import {
   MicOff,
   Volume2,
   Globe,
-  CheckCircle2
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,7 +41,10 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [isScraping, setIsScraping] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // --- Voice Integration ---
   const recognition = useRef(null);
@@ -51,30 +55,41 @@ export default function App() {
       recognition.current = new SpeechRecognition();
       recognition.current.continuous = false;
       recognition.current.interimResults = false;
-      
       recognition.current.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         setInput(transcript);
         setIsListening(false);
       };
-
       recognition.current.onerror = () => setIsListening(false);
       recognition.current.onend = () => setIsListening(false);
     }
   }, []);
 
   const toggleListening = () => {
-    if (isListening) {
-      recognition.current?.stop();
-    } else {
-      setIsListening(true);
-      recognition.current?.start();
-    }
+    if (isListening) recognition.current?.stop();
+    else { setIsListening(true); recognition.current?.start(); }
   };
 
   const speak = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
     window.speechSynthesis.speak(utterance);
+  };
+
+  // --- Image Handling ---
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // --- Auth & Session ---
@@ -109,11 +124,15 @@ export default function App() {
   // --- Streaming Chat Logic ---
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!input.trim() || isTyping) return;
+    if (!input.trim() && !selectedImage || isTyping) return;
 
-    const userMessage = { role: 'user', content: input };
+    const userMessage = { role: 'user', content: input, image: imagePreview };
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
+    const currentImage = imagePreview;
+    
     setInput('');
+    removeImage();
     setIsTyping(true);
 
     try {
@@ -123,7 +142,10 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ 
+          message: currentInput,
+          image_data: currentImage
+        })
       });
 
       const reader = response.body.getReader();
@@ -202,7 +224,7 @@ export default function App() {
       <AnimatePresence>
         {sidebarOpen && (
           <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 300, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="flex flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 border-b border-slate-200 dark:border-slate-800">
               <button onClick={() => setMessages([])} className="flex w-full items-center justify-center space-x-2 rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 transition-colors"><Plus size={18} /><span>New Chat</span></button>
               
               <div className="space-y-2">
@@ -248,16 +270,21 @@ export default function App() {
             <div className="flex h-full flex-col items-center justify-center">
               <Bot className="text-blue-500 mb-4" size={64} />
               <h2 className="text-2xl font-bold dark:text-white">Ready for your prompt.</h2>
-              <p className="text-slate-500 mt-2">I can read PDFs, scrape websites, and talk back.</p>
+              <p className="text-slate-500 mt-2">I can read PDFs, scrape websites, see images, and remember our chat.</p>
             </div>
           )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`relative group max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}>
-                {msg.role === 'bot' && (
-                  <button onClick={() => speak(msg.content)} className="absolute -right-8 top-1 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-500"><Volume2 size={16} /></button>
+              <div className={`relative group max-w-[80%] space-y-2`}>
+                {msg.image && (
+                  <img src={msg.image} alt="User upload" className="max-w-full rounded-xl shadow-md border border-slate-200 dark:border-slate-700" />
                 )}
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                <div className={`rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}>
+                  {msg.role === 'bot' && (
+                    <button onClick={() => speak(msg.content)} className="absolute -right-8 top-1 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-500"><Volume2 size={16} /></button>
+                  )}
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -265,12 +292,26 @@ export default function App() {
         </div>
 
         <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <AnimatePresence>
+            {imagePreview && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="relative mb-4 inline-block">
+                <img src={imagePreview} className="h-24 w-24 object-cover rounded-lg border-2 border-blue-500 shadow-lg" alt="Preview" />
+                <button onClick={removeImage} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"><X size={12} /></button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
           <form onSubmit={handleSendMessage} className="mx-auto max-w-4xl flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 rounded-xl p-2 border border-slate-200 dark:border-slate-700 shadow-sm">
             <button type="button" onClick={toggleListening} className={`p-2 rounded-lg transition-colors ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
               {isListening ? <MicOff size={20} /> : <Mic size={20} />}
             </button>
-            <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type or speak a message..." className="flex-1 bg-transparent p-2 text-sm outline-none dark:text-white" />
-            <button disabled={!input.trim() || isTyping} className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-700 disabled:opacity-50"><Send size={20} /></button>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
+              <ImageIcon size={20} />
+            </button>
+            <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+            
+            <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type, speak, or upload an image..." className="flex-1 bg-transparent p-2 text-sm outline-none dark:text-white" />
+            <button disabled={(!input.trim() && !selectedImage) || isTyping} className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-700 disabled:opacity-50"><Send size={20} /></button>
           </form>
         </div>
       </main>

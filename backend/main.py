@@ -2,9 +2,10 @@ import os
 import logging
 import json
 import uuid
+import base64
 from typing import List, Optional, AsyncGenerator
 
-from fastapi import FastAPI, Depends, HTTPException, Header, status, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -51,7 +52,7 @@ def get_embedding_model():
     return _embedding_model
 
 # FastAPI App
-app = FastAPI(title="AI Chatbot Backend", version="1.1.0")
+app = FastAPI(title="AI Chatbot Backend", version="1.2.0")
 
 # CORS Middleware
 app.add_middleware(
@@ -65,6 +66,7 @@ app.add_middleware(
 # Models
 class ChatRequest(BaseModel):
     message: str
+    image_data: Optional[str] = None # Base64 string
 
 class ScrapeRequest(BaseModel):
     url: str
@@ -93,21 +95,47 @@ def retrieve_context(query_vector: List[float], top_k: int = 3) -> List[str]:
         logger.error(f"Pinecone error: {e}")
         return []
 
-async def stream_gemini_response(question: str, contexts: List[str], user_id: str):
+async def stream_gemini_response(question: str, contexts: List[str], user_id: str, image_data: Optional[str] = None):
     full_response = ""
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        context_str = "\n".join([f"- {c}" for c in contexts])
-        prompt = f"Context:\n{context_str}\n\nQuestion: {question}"
+        # 1. Fetch short-term memory (last 5 messages)
+        history_resp = supabase.table("chat_history") \
+            .select("user_message, ai_response") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .limit(5) \
+            .execute()
         
-        response = model.generate_content(prompt, stream=True)
+        history_items = history_resp.data[::-1] # Reverse to get chronological order
+        
+        # 2. Build Multi-modal Prompt
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        system_instruction = "You are a helpful AI assistant. Use the context and conversation history to answer."
+        context_str = "\n".join([f"- {c}" for c in contexts])
+        history_str = "\n".join([f"User: {h['user_message']}\nAI: {h['ai_response']}" for h in history_items])
+        
+        content_parts = [
+            f"{system_instruction}\n\nRELEVANT CONTEXT:\n{context_str}\n\nCONVERSATION HISTORY:\n{history_str}\n\nUser Question: {question}"
+        ]
+        
+        # 3. Add Image if provided
+        if image_data:
+            # Remove header if present (e.g., data:image/png;base64,)
+            if "," in image_data:
+                image_data = image_data.split(",")[1]
+            
+            image_bytes = base64.b64decode(image_data)
+            content_parts.append({"mime_type": "image/jpeg", "data": image_bytes})
+        
+        response = model.generate_content(content_parts, stream=True)
         
         for chunk in response:
             if chunk.text:
                 full_response += chunk.text
                 yield f"data: {json.dumps({'text': chunk.text})}\n\n"
         
-        # Save to history after stream completes
+        # 4. Save to history
         try:
             supabase.table("chat_history").insert({
                 "user_id": user_id,
@@ -128,7 +156,7 @@ async def chat_stream(request: ChatRequest, user = Depends(get_current_user)):
     query_vec = get_embedding(request.message)
     contexts = retrieve_context(query_vec)
     return StreamingResponse(
-        stream_gemini_response(request.message, contexts, user.id),
+        stream_gemini_response(request.message, contexts, user.id, request.image_data),
         media_type="text/event-stream"
     )
 
@@ -137,22 +165,16 @@ async def scrape_url(request: ScrapeRequest, user = Depends(get_current_user)):
     try:
         resp = requests.get(request.url, timeout=10)
         soup = BeautifulSoup(resp.text, 'html.parser')
-        
-        # Basic text extraction
         for script in soup(["script", "style"]):
             script.decompose()
         text = soup.get_text(separator=' ', strip=True)
-        
-        # Simple chunking (reuse logic)
         words = text.split()
         chunks = [" ".join(words[i:i+500]) for i in range(0, len(words), 450)]
-        
         all_upserts = []
         model = get_embedding_model()
         for i, chunk in enumerate(chunks):
             vec = model.encode(chunk).tolist()
             all_upserts.append((f"scrape_{uuid.uuid4().hex[:8]}", vec, {"text": chunk, "source": request.url}))
-            
         index.upsert(vectors=all_upserts)
         return {"status": "success", "chunks": len(chunks)}
     except Exception as e:
