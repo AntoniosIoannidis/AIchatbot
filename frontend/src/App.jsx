@@ -6,11 +6,15 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Configuration ---
+// --- Configuration (Safe Access) ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Initialize Supabase only if keys exist to prevent early crash
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -29,22 +33,27 @@ export default function App() {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // --- Inject Base Styles (Bypass Local Corruption) ---
+  // --- Inject Base Styles ---
   useEffect(() => {
     try {
       const style = document.createElement('style');
       style.innerHTML = `
-        html, body, #root { height: 100vh !important; width: 100vw !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; font-family: sans-serif; }
+        html, body, #root { height: 100vh !important; width: 100vw !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; font-family: sans-serif; background: #0f172a; }
         body { transition: background-color 0.2s, color 0.2s; }
         .dark body { background-color: #0f172a; color: #f8fafc; }
         * { box-sizing: border-box; }
       `;
       document.head.appendChild(style);
-    } catch (e) { console.error("Style injection failed", e); }
+    } catch (e) {}
   }, []);
 
-  // --- Auth & Session ---
+  // --- Auth & Session (With Safety) ---
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -53,7 +62,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -65,27 +74,30 @@ export default function App() {
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
 
   const fetchHistory = async () => {
+    if (!session) return;
     try {
       const { data } = await axios.get(`/api/history`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       setHistory(data.history || []);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("History fail:", err); }
   };
 
-  // --- Voice Integration (Safe check) ---
+  // --- Voice Integration (Safe initialization) ---
   const recognition = useRef(null);
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition.current = new SpeechRecognition();
-      recognition.current.onresult = (e) => setInput(e.results[0][0].transcript);
-      recognition.current.onend = () => setIsListening(false);
-    }
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognition.current = new SpeechRecognition();
+        recognition.current.onresult = (e) => setInput(e.results[0][0].transcript);
+        recognition.current.onend = () => setIsListening(false);
+      }
+    } catch (e) { console.warn("Voice not supported"); }
   }, []);
 
   const toggleListening = () => {
-    if (!recognition.current) return alert("Speech not supported in this browser.");
+    if (!recognition.current) return alert("Speech recognition not supported in this browser.");
     if (isListening) recognition.current.stop();
     else { setIsListening(true); recognition.current.start(); }
   };
@@ -131,23 +143,25 @@ export default function App() {
       }
       fetchHistory();
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'bot', content: "Server connection lost." }]);
+      setMessages(prev => [...prev, { role: 'bot', content: "Lost connection to AI brain." }]);
     } finally { setIsTyping(false); }
   };
 
-  if (loading) return <div style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0f172a'}}><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
+  if (loading) return <div style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0f172a', color:'white'}}>Loading AI Assistant...</div>;
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return <div style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#0f172a', color:'white'}}>Configuration Error: Missing VITE_SUPABASE keys in Vercel.</div>;
 
   if (!session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-white">
         <div className="w-full max-w-md rounded-2xl bg-slate-900 p-8 shadow-xl border border-slate-800">
-          <h1 className="text-3xl font-bold text-center mb-8 text-white">AI Assistant</h1>
+          <h1 className="text-3xl font-bold text-center mb-8">AI Assistant</h1>
           <form onSubmit={(e) => {
             e.preventDefault();
             supabase.auth.signInWithPassword({ email: e.target.email.value, password: e.target.password.value });
-          }} className="space-y-4">
-            <input name="email" type="email" placeholder="Email" className="w-full rounded-lg bg-slate-800 p-3 text-white outline-none border border-slate-700" required />
-            <input name="password" type="password" placeholder="Password" className="w-full rounded-lg bg-slate-800 p-3 text-white outline-none border border-slate-700" required />
+          }} className="space-y-4 text-slate-900">
+            <input name="email" type="email" placeholder="Email" className="w-full rounded-lg bg-white p-3 outline-none" required />
+            <input name="password" type="password" placeholder="Password" className="w-full rounded-lg bg-white p-3 outline-none" required />
             <button type="submit" className="w-full rounded-lg bg-blue-600 p-3 font-semibold text-white hover:bg-blue-700">Sign In</button>
           </form>
         </div>
@@ -184,10 +198,10 @@ export default function App() {
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">{darkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
         </header>
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {messages.length === 0 && <div className="h-full flex flex-col items-center justify-center"><Bot className="text-blue-500 mb-4" size={64} /><h2 className="text-2xl font-bold dark:text-white">How can I help?</h2></div>}
+          {messages.length === 0 && <div className="h-full flex flex-col items-center justify-center"><Bot className="text-blue-500 mb-4" size={64} /><h2 className="text-2xl font-bold dark:text-white text-slate-900">How can I help?</h2></div>}
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 dark:text-white'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 dark:text-white text-slate-900'}`}>
                 {msg.image && <img src={msg.image} className="max-w-full rounded-lg mb-2" alt="upload" />}
                 <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
               </div>
