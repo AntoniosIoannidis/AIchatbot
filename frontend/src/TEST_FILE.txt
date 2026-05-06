@@ -1,0 +1,2 @@
+This is a test file to verify that the AI can write to your GitHub folder.
+If you see this in GitHub Desktop, then the updates to App.jsx are also there!
