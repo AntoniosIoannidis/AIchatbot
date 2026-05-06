@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-pinecone
-google-genai
-python-dotenv
-supabase
-beautifulsoup4
-requests
-pypdf
