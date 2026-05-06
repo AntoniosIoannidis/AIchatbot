@@ -49,6 +49,16 @@ export default function App() {
   // --- Voice Integration ---
   const recognition = useRef(null);
 
+  // --- Inject Base Styles (Bypass Local Corruption) ---
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      html, body, #root { height: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
+      body { transition: background-color 0.2s, color 0.2s; }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
   useEffect(() => {
     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

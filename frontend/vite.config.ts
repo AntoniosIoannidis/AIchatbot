@@ -1,12 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  css: {
+    transformer: 'lightningcss',
+    lightningcss: {
+      drafts: {
+        customMedia: true
+      }
+    }
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssMinify: 'lightningcss'
   },
   server: {
     proxy: {
