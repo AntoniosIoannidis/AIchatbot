@@ -4,7 +4,7 @@ import logging
 from typing import List
 from dotenv import load_dotenv
 
-import google.generativeai as genai
+from google import genai
 from pinecone import Pinecone
 
 # Try to import pypdf for PDF support
@@ -30,19 +30,22 @@ if not all([GEMINI_API_KEY, PINECONE_API_KEY, PINECONE_INDEX_NAME]):
     raise RuntimeError("Missing configuration in .env. Ensure GEMINI_API_KEY, PINECONE_API_KEY, and PINECONE_INDEX are set.")
 
 # Initialize Clients
-genai.configure(api_key=GEMINI_API_KEY)
-pc = Pinecone(api_key=PINECONE_API_KEY)
-index = pc.Index(PINECONE_INDEX_NAME)
+try:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    index = pc.Index(PINECONE_INDEX_NAME)
+except Exception as e:
+    logger.error(f"Initialization error: {e}")
 
 def get_google_embedding(text: str) -> List[float]:
-    """Uses Google's Cloud Embedding API (768 dimensions)."""
+    """Uses new Google GenAI Embedding API (768 dimensions)."""
     try:
-        res = genai.embed_content(
-            model="models/text-embedding-004",
-            content=text,
-            task_type="retrieval_document"
+        res = client.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
+            config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         )
-        return res['embedding']
+        return res.embeddings[0].values
     except Exception as e:
         logger.error(f"Error generating embedding: {e}")
         return []
@@ -50,26 +53,21 @@ def get_google_embedding(text: str) -> List[float]:
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """Splits long text into smaller overlapping chunks."""
     words = text.split()
-    if not words:
-        return []
+    if not words: return []
     chunks = []
     for i in range(0, len(words), chunk_size - overlap):
-        chunk = " ".join(words[i : i + chunk_size])
-        chunks.append(chunk)
+        chunks.append(" ".join(words[i : i + chunk_size]))
     return chunks
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extracts all text from a PDF file."""
-    if not PDF_SUPPORT:
-        logger.error("pypdf not installed. Skipping PDF.")
-        return ""
+    if not PDF_SUPPORT: return ""
     try:
         reader = PdfReader(file_path)
         text = ""
         for page in reader.pages:
             page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
+            if page_text: text += page_text + "\n"
         return text
     except Exception as e:
         logger.error(f"Error reading PDF {file_path}: {e}")
@@ -83,49 +81,33 @@ def process_files():
         return
 
     all_upserts = []
-    
     for filename in os.listdir(DATA_DIR):
         file_path = os.path.join(DATA_DIR, filename)
         content = ""
-        
         if filename.lower().endswith(".txt"):
             logger.info(f"Processing TXT: {filename}...")
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-        
+            with open(file_path, "r", encoding="utf-8") as f: content = f.read()
         elif filename.lower().endswith(".pdf"):
             logger.info(f"Processing PDF: {filename}...")
             content = extract_text_from_pdf(file_path)
         
-        if not content.strip():
-            continue
-            
+        if not content.strip(): continue
+        
         chunks = chunk_text(content)
         logger.info(f"Split {filename} into {len(chunks)} chunks.")
         
         for i, chunk in enumerate(chunks):
-            chunk_id = f"{filename}_{i}_{uuid.uuid4().hex[:6]}"
-            # Using Google Cloud Embeddings
             vector = get_google_embedding(chunk)
-            if not vector:
-                continue
-                
-            metadata = {
-                "text": chunk,
-                "source": filename,
-                "chunk_index": i
-            }
-            all_upserts.append((chunk_id, vector, metadata))
+            if not vector: continue
+            all_upserts.append((f"{filename}_{i}_{uuid.uuid4().hex[:6]}", vector, {"text": chunk, "source": filename}))
 
     if all_upserts:
         logger.info(f"Upserting {len(all_upserts)} vectors to Pinecone...")
-        # Batch upsert
         for i in range(0, len(all_upserts), 100):
-            batch = all_upserts[i : i + 100]
-            index.upsert(vectors=batch)
-        logger.info("Successfully ingested all data with Google Cloud Embeddings (768 dimensions).")
+            index.upsert(vectors=all_upserts[i : i + 100])
+        logger.info("Successfully ingested all data with Google Cloud Embeddings.")
     else:
-        logger.warning("No valid text found in files to process.")
+        logger.warning("No valid text found to process.")
 
 if __name__ == "__main__":
     process_files()
