@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, MicOff, Image as ImageIcon, X, ChevronRight, Sun, Moon, Bot, Sparkles } from 'lucide-react';
 import Message from './Message';
@@ -169,7 +169,7 @@ export default function ChatArea({
             </motion.button>
           </form>
           <p className="text-[10px] text-center text-slate-600 mt-4 font-bold uppercase tracking-widest">
-            End-to-end encrypted session � Neural Engine v4.0
+            End-to-end encrypted session • Neural Engine v4.0
           </p>
         </div>
       </div>

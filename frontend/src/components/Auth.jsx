@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+ï»¿import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, Mail, Lock, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
@@ -88,7 +88,7 @@ export default function Auth({ supabase }) {
               <input 
                 name="password" 
                 type="password" 
-                placeholder="••••••••" 
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" 
                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                 required 
               />
