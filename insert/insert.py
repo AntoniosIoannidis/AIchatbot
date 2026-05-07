@@ -1,154 +1,80 @@
-from dotenv import load_dotenv
-from dotenv import load_dotenv
 import os
+import uuid
+import logging
+from typing import List
+from dotenv import load_dotenv
+
+from google import genai
 from pinecone import Pinecone, ServerlessSpec
 
-# Load .env
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
+
+# Load configuration
 load_dotenv(override=True)
 
-# Required env vars
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENV = os.getenv("PINECONE_ENVIRONMENT")  # optional
-INDEX_NAME = os.getenv("PINECONE_INDEX")
-USE_LOCAL = os.getenv("USE_LOCAL_EMBEDDINGS", "true").lower() in ("1", "true", "yes")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX")
 
-if not PINECONE_API_KEY or not INDEX_NAME:
-    raise RuntimeError("Missing PINECONE_API_KEY or PINECONE_INDEX in .env")
+if not all([GEMINI_API_KEY, PINECONE_API_KEY, PINECONE_INDEX_NAME]):
+    raise RuntimeError("Missing configuration in .env. Ensure GEMINI_API_KEY, PINECONE_API_KEY, and PINECONE_INDEX are set.")
 
-# Construct Pinecone client instance using the package's Pinecone class
-pc_kwargs = {"api_key": PINECONE_API_KEY}
-if PINECONE_ENV:
-    pc_kwargs["environment"] = PINECONE_ENV
-pc = Pinecone(**pc_kwargs)
-
-USE_LOCAL = os.getenv("USE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
-_local_model = None
-
-def _init_local_model():
-    global _local_model
-    if _local_model is None:
-        from sentence_transformers import SentenceTransformer
-        _local_model = SentenceTransformer("all-MiniLM-L6-v2")  # downloads once
-    return _local_model
-
-def get_embedding(text: str) -> list:
-    # If user requested local embeddings, use them and never call OpenAI
-    if USE_LOCAL:
-        try:
-            model = _init_local_model()
-            emb = model.encode(text)
-            return list(map(float, emb))
-        except Exception as e:
-            print(f"Local embedding failed ({type(e).__name__}): {e}. Using deterministic fallback.")
-            # deterministic fallback (keeps previous fallback behavior)
-    else:
-        # prefer OpenAI, but fall back to local or deterministic if it fails
-        try:
-            resp = client.embeddings.create(model="text-embedding-3-small", input=text)
-            return resp.data[0].embedding
-        except Exception as ex:
-            print(f"OpenAI embedding failed ({type(ex).__name__}): {ex}")
-
-            # try local if available
-            try:
-                model = _init_local_model()
-                emb = model.encode(text)
-                return list(map(float, emb))
-            except Exception as e:
-                print(f"Local embedding also failed ({type(e).__name__}): {e}. Using deterministic fallback.")
-
-    # Deterministic fallback (same as before)
-    import hashlib, random
-    h = hashlib.sha256(text.encode("utf-8")).digest()
-    seed = int.from_bytes(h[:8], "big")
-    rnd = random.Random(seed)
-    return [rnd.random() * 2.0 - 1.0 for _ in range(1536)]
-
-
-# Documents to upsert
-docs = [
-    {"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
-    {"id": "vec2", "text": "The tech company Apple is known for its innovative products like the iPhone."},
-    {"id": "vec3", "text": "Many people enjoy eating apples as a healthy snack."},
-]
-
-# Compute embeddings first so we can create an index with the correct dimension
-embeddings = {}
-for doc in docs:
-    embeddings[doc["id"]] = get_embedding(doc["text"])
-
-# determine vector dimension
-first_vec = next(iter(embeddings.values()))
-vector_dim = len(first_vec)
-
-# list_indexes return shape can vary
-existing = pc.list_indexes()
+# Initialize Clients
 try:
-    names = existing.names()
-except Exception:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+except Exception as e:
+    logger.error(f"Initialization error: {e}")
+    exit(1)
+
+def get_google_embedding(text: str) -> List[float]:
+    """Uses Google GenAI Embedding API (768 dimensions)."""
     try:
-        names = list(existing)
-    except Exception:
-        names = []
+        res = client.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
+            config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+        )
+        return res.embeddings[0].values
+    except Exception as e:
+        logger.error(f"Error generating embedding: {e}")
+        return []
 
-if INDEX_NAME in names:
-    # check existing index dimension, delete and recreate if mismatched
-    try:
-        desc = pc.describe_index(INDEX_NAME)
-        existing_dim = None
-        # try common access patterns
-        if hasattr(desc, "dimension"):
-            existing_dim = desc.dimension
-        elif isinstance(desc, dict) and "dimension" in desc:
-            existing_dim = desc["dimension"]
-        if existing_dim is not None and existing_dim != vector_dim:
-            print(f"Index '{INDEX_NAME}' exists with dimension {existing_dim}, required {vector_dim}. Recreating index.")
-            pc.delete_index(INDEX_NAME)
-            names.remove(INDEX_NAME)
-    except Exception:
-        # unable to describe index; proceed to recreate if upsert fails later
-        pass
+def setup_index(dimension: int):
+    existing = pc.list_indexes().names()
+    if PINECONE_INDEX_NAME not in existing:
+        logger.info(f"Creating index {PINECONE_INDEX_NAME}...")
+        pc.create_index(
+            name=PINECONE_INDEX_NAME,
+            dimension=dimension,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+        )
+    return pc.Index(PINECONE_INDEX_NAME)
 
-if INDEX_NAME not in names:
-    # try creating with a ServerlessSpec if supported
-    try:
-        spec = ServerlessSpec(cloud="aws", region="us-east-1")
-        pc.create_index(name=INDEX_NAME, dimension=vector_dim, metric="cosine", spec=spec)
-    except TypeError:
-        pc.create_index(name=INDEX_NAME, dimension=vector_dim, metric="cosine")
+def insert_sample_data():
+    """Inserts high-quality sample data to get started."""
+    docs = [
+        {"text": "This AI Chatbot is built using React, FastAPI, Pinecone, and Google Gemini.", "source": "system"},
+        {"text": "You can generate images by asking the bot to 'generate' or 'create' something visual.", "source": "manual"},
+        {"text": "The knowledge base is stored in Pinecone as vector embeddings for fast retrieval.", "source": "architecture"},
+    ]
 
-# Try to get an index handle
-index_handle = None
-for getter in ("Index", "index", "get_index"):
-    fn = getattr(pc, getter, None)
-    if callable(fn):
-        try:
-            index_handle = fn(INDEX_NAME)
-            break
-        except TypeError:
-            try:
-                index_handle = fn(name=INDEX_NAME)
-                break
-            except Exception:
-                continue
+    all_upserts = []
+    for doc in docs:
+        vector = get_google_embedding(doc["text"])
+        if not vector: continue
+        all_upserts.append((f"manual_{uuid.uuid4().hex[:8]}", vector, {"text": doc["text"], "source": doc["source"]}))
 
-# Build upsert payload using precomputed embeddings
-upserts = []
-for doc in docs:
-    vec = embeddings[doc["id"]]
-    upserts.append((doc["id"], vec, {"text": doc["text"]}))
-
-# Upsert using index handle if available, else use client-level upsert
-if index_handle is not None and hasattr(index_handle, "upsert"):
-    index_handle.upsert(vectors=upserts)
-else:
-    client_upsert = getattr(pc, "upsert", None)
-    if callable(client_upsert):
-        try:
-            client_upsert(index_name=INDEX_NAME, vectors=upserts)
-        except TypeError:
-            client_upsert(INDEX_NAME, upserts)
+    if all_upserts:
+        index = setup_index(len(all_upserts[0][1]))
+        logger.info(f"Upserting {len(all_upserts)} vectors...")
+        index.upsert(vectors=all_upserts)
+        logger.info("Sample data inserted successfully.")
     else:
-        raise RuntimeError("No upsert method available on Pinecone client/index")
+        logger.warning("No data to insert.")
 
-print("Data stored in Pinecone successfully.")
+if __name__ == "__main__":
+    insert_sample_data()

@@ -5,14 +5,7 @@ from typing import List
 from dotenv import load_dotenv
 
 from google import genai
-from pinecone import Pinecone
-
-# Try to import pypdf for PDF support
-try:
-    from pypdf import PdfReader
-    PDF_SUPPORT = True
-except ImportError:
-    PDF_SUPPORT = False
+from pinecone import Pinecone, ServerlessSpec
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -33,12 +26,12 @@ if not all([GEMINI_API_KEY, PINECONE_API_KEY, PINECONE_INDEX_NAME]):
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)
     pc = Pinecone(api_key=PINECONE_API_KEY)
-    index = pc.Index(PINECONE_INDEX_NAME)
 except Exception as e:
     logger.error(f"Initialization error: {e}")
+    exit(1)
 
 def get_google_embedding(text: str) -> List[float]:
-    """Uses new Google GenAI Embedding API (768 dimensions)."""
+    """Uses Google GenAI Embedding API (768 dimensions)."""
     try:
         res = client.models.embed_content(
             model="text-embedding-004",
@@ -47,7 +40,7 @@ def get_google_embedding(text: str) -> List[float]:
         )
         return res.embeddings[0].values
     except Exception as e:
-        logger.error(f"Error generating embedding: {e}")
+        logger.error(f"Error generating embedding for text '{text[:50]}...': {e}")
         return []
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
@@ -59,37 +52,42 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]
         chunks.append(" ".join(words[i : i + chunk_size]))
     return chunks
 
-def extract_text_from_pdf(file_path: str) -> str:
-    """Extracts all text from a PDF file."""
-    if not PDF_SUPPORT: return ""
-    try:
-        reader = PdfReader(file_path)
-        text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text: text += page_text + "\n"
-        return text
-    except Exception as e:
-        logger.error(f"Error reading PDF {file_path}: {e}")
-        return ""
+def setup_index(dimension: int):
+    """Ensures the Pinecone index exists with the correct dimensions."""
+    existing = pc.list_indexes().names()
+    if PINECONE_INDEX_NAME not in existing:
+        logger.info(f"Creating index {PINECONE_INDEX_NAME} (Dim: {dimension})...")
+        pc.create_index(
+            name=PINECONE_INDEX_NAME,
+            dimension=dimension,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+        )
+    return pc.Index(PINECONE_INDEX_NAME)
 
 def process_files():
-    """Processes TXT and PDF files using Google Cloud Embeddings."""
+    """Processes all TXT and MD files in the data directory."""
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
-        logger.info(f"Created '{DATA_DIR}' directory.")
+        logger.info(f"Created '{DATA_DIR}' directory. Please add your .txt or .md files there.")
         return
 
     all_upserts = []
-    for filename in os.listdir(DATA_DIR):
+    files_to_process = [f for f in os.listdir(DATA_DIR) if f.lower().endswith((".txt", ".md"))]
+    
+    if not files_to_process:
+        logger.warning(f"No .txt or .md files found in {DATA_DIR}.")
+        return
+
+    for filename in files_to_process:
         file_path = os.path.join(DATA_DIR, filename)
-        content = ""
-        if filename.lower().endswith(".txt"):
-            logger.info(f"Processing TXT: {filename}...")
-            with open(file_path, "r", encoding="utf-8") as f: content = f.read()
-        elif filename.lower().endswith(".pdf"):
-            logger.info(f"Processing PDF: {filename}...")
-            content = extract_text_from_pdf(file_path)
+        logger.info(f"Processing: {filename}...")
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            logger.error(f"Failed to read {filename}: {e}")
+            continue
         
         if not content.strip(): continue
         
@@ -99,13 +97,19 @@ def process_files():
         for i, chunk in enumerate(chunks):
             vector = get_google_embedding(chunk)
             if not vector: continue
-            all_upserts.append((f"{filename}_{i}_{uuid.uuid4().hex[:6]}", vector, {"text": chunk, "source": filename}))
+            all_upserts.append((
+                f"{filename}_{i}_{uuid.uuid4().hex[:6]}", 
+                vector, 
+                {"text": chunk, "source": filename}
+            ))
 
     if all_upserts:
+        index = setup_index(len(all_upserts[0][1]))
         logger.info(f"Upserting {len(all_upserts)} vectors to Pinecone...")
+        # Batch upsert for efficiency
         for i in range(0, len(all_upserts), 100):
             index.upsert(vectors=all_upserts[i : i + 100])
-        logger.info("Successfully ingested all data with Google Cloud Embeddings.")
+        logger.info("Successfully ingested all data with Google Embeddings.")
     else:
         logger.warning("No valid text found to process.")
 
