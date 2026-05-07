@@ -1,7 +1,7 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 // Components
 import Auth from './components/Auth';
@@ -9,18 +9,25 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 
 // --- Configuration ---
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-  : null;
+// Fail-safe client initialization
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (e) {
+    console.error("Supabase initialization failed:", e);
+  }
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [configError, setConfigError] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY);
   const [darkMode, setDarkMode] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed for minimalism
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([]);
@@ -31,16 +38,22 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
+    if (configError || !supabase) { 
+      setLoading(false); 
+      return; 
+    }
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+    
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [configError]);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -118,6 +131,25 @@ export default function App() {
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-[#05070a]">
        <div className="w-12 h-12 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+    </div>
+  );
+
+  if (configError) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-[#05070a] text-center p-6">
+      <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20">
+        <AlertCircle className="text-red-500" size={32} />
+      </div>
+      <h1 className="text-xl font-bold text-white mb-2">Configuration Missing</h1>
+      <p className="text-slate-400 max-w-sm text-sm mb-8 leading-relaxed">
+        The VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables are missing. 
+        Please check your Vercel settings and redeploy.
+      </p>
+      <button 
+        onClick={() => window.location.reload()}
+        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-blue-500 hover:text-white transition-all text-xs tracking-widest uppercase"
+      >
+        Retry Connection
+      </button>
     </div>
   );
 
