@@ -131,7 +131,8 @@ export default function App() {
         sidebarOpen={sidebarOpen} 
         setSidebarOpen={setSidebarOpen} 
         session={session} 
-        supabase={supabase} 
+        supabase={supabase}
+        fetchHistory={fetchHistory}
       />
       
       <ChatArea 

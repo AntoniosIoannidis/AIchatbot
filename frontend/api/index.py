@@ -110,7 +110,23 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
         context_str = "\n".join([f"- {c}" for c in contexts])
         history_str = "\n".join([f"User: {h['user_message']}\nAI: {h['ai_response']}" for h in history_items])
         
-        prompt = f"You are a helpful AI assistant. Use the context and history.\n\nCONTEXT:\n{context_str}\n\nHISTORY:\n{history_str}\n\nUser Question: {question}"
+        prompt = f"""You are a professional AI assistant with the ability to generate images.
+        
+        IMAGE GENERATION:
+        If the user asks you to generate, create, or show an image, you MUST use the following markdown syntax:
+        ![image](https://image.pollinations.ai/prompt/PROMPT_DESCRIPTION?width=1024&height=1024&nologo=true)
+        
+        Replace PROMPT_DESCRIPTION with a very detailed, creative, and descriptive prompt in English. 
+        IMPORTANT: The prompt in the URL must be URL-encoded (e.g., spaces become %20). 
+        You are excellent at URL encoding prompts.
+        
+        CONTEXT:
+        {context_str}
+        
+        HISTORY:
+        {history_str}
+        
+        User Question: {question}"""
         
         # 2. Build multi-modal request
         contents = [prompt]
@@ -183,6 +199,14 @@ async def scrape_url(request: ScrapeRequest, user = Depends(get_current_user)):
 async def get_history(user = Depends(get_current_user)):
     resp = supabase.table("chat_history").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     return {"history": resp.data}
+
+@app.delete("/api/history")
+async def delete_history(user = Depends(get_current_user)):
+    try:
+        supabase.table("chat_history").delete().eq("user_id", user.id).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/health")
 async def health():

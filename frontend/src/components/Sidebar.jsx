@@ -3,10 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, MessageSquare, LogOut, X, User, Bot, Globe, Loader2, CheckCircle, Compass } from 'lucide-react';
 import axios from 'axios';
 
-export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarOpen, session, supabase }) {
+export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarOpen, session, supabase, fetchHistory }) {
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeStatus, setScrapeStatus] = useState(null);
+
+  const handleClearHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear your chat history?")) return;
+    try {
+      await axios.delete('/api/history', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      fetchHistory();
+      setMessages([]);
+    } catch (err) {
+      console.error("Failed to clear history:", err);
+    }
+  };
 
   const handleScrape = async (e) => {
     e.preventDefault();
@@ -60,7 +73,17 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
 
           {/* History */}
           <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-            <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-[0.4em] mb-6">Archive</h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-[0.4em]">Archive</h3>
+              {history.length > 0 && (
+                <button 
+                  onClick={handleClearHistory}
+                  className="text-[9px] font-bold text-slate-500 hover:text-red-500 transition-colors uppercase tracking-widest"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
             {history.map((chat, idx) => (
               <button
                 key={idx}
