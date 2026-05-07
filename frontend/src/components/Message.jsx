@@ -9,41 +9,39 @@ export default function Message({ role, content, image }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-6`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-12`}
     >
-      <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end`}>
-        <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mb-1 ${
+      <div className={`flex max-w-[90%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-6`}>
+        <div className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center ${
           isUser 
-          ? 'ml-3 bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-          : 'mr-3 bg-slate-800 text-blue-400 border border-slate-700 shadow-xl'
+          ? 'bg-white text-black' 
+          : 'bg-white/[0.03] text-blue-500 border border-white/5'
         }`}>
-          {isUser ? <User size={16} /> : <Bot size={16} />}
+          {isUser ? <User size={18} /> : <Bot size={18} />}
         </div>
         
-        <div className={`relative px-6 py-4 rounded-[2rem] shadow-sm border ${
-          isUser
-          ? 'bg-blue-600 text-white border-blue-500 rounded-br-none'
-          : 'bg-slate-800/50 backdrop-blur-md text-slate-100 border-slate-700/50 rounded-bl-none'
-        }`}>
+        <div className="flex flex-col gap-3">
           {image && (
-            <div className="mb-4 overflow-hidden rounded-2xl border border-white/10">
-              <img src={image} className="max-w-full h-auto object-cover" alt="attachment" />
+            <div className="overflow-hidden rounded-3xl border border-white/5 shadow-2xl">
+              <img src={image} className="max-w-md h-auto object-cover" alt="attachment" />
             </div>
           )}
           
-          <div className={`prose prose-sm max-w-none ${isUser ? 'prose-invert' : 'prose-slate dark:prose-invert'}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
+          <div className={`text-sm leading-relaxed ${isUser ? 'text-white font-medium text-right' : 'text-slate-300'}`}>
+            <div className="prose prose-sm prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
           </div>
           
           {!isUser && content === '' && (
-            <div className="flex space-x-1 items-center py-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex space-x-2 items-center h-6">
+              <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           )}
         </div>
