@@ -56,16 +56,8 @@ export default function App() {
   }, [configError]);
 
   useEffect(() => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      body { margin: 0; padding: 0; background: #05070a; color: #f8fafc; overflow: hidden; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
-      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
-      ::selection { background: rgba(59, 130, 246, 0.3); color: white; }
-    `;
-    document.head.appendChild(style);
+    // Basic body styles are now in App.css
+    document.body.className = 'custom-scrollbar';
   }, []);
 
   useEffect(() => {
@@ -129,24 +121,24 @@ export default function App() {
   };
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-[#05070a]">
-       <div className="w-12 h-12 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+    <div className="h-screen flex items-center justify-center bg-[#212121]">
+       <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
     </div>
   );
 
   if (configError) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[#05070a] text-center p-6">
+    <div className="h-screen flex flex-col items-center justify-center bg-[#212121] text-center p-6">
       <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20">
         <AlertCircle className="text-red-500" size={32} />
       </div>
       <h1 className="text-xl font-bold text-white mb-2">Configuration Missing</h1>
       <p className="text-slate-400 max-w-sm text-sm mb-8 leading-relaxed">
         The VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables are missing. 
-        Please check your Vercel settings and redeploy.
+        Please check your local .env or Vercel settings and redeploy.
       </p>
       <button 
         onClick={() => window.location.reload()}
-        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-blue-500 hover:text-white transition-all text-xs tracking-widest uppercase"
+        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-xs tracking-widest uppercase"
       >
         Retry Connection
       </button>
@@ -156,7 +148,7 @@ export default function App() {
   if (!session) return <Auth supabase={supabase} />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#05070a]">
+    <div className="flex h-screen overflow-hidden bg-[#212121]">
       <Sidebar 
         history={history} 
         setMessages={setMessages} 
