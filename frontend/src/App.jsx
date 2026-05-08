@@ -152,7 +152,11 @@ export default function App() {
   if (!session) return <Auth supabase={supabase} />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#212121]">
+    <div className="flex h-screen overflow-hidden bg-[#020617] relative">
+      <div className="aura-bg">
+        <div className="blob"></div>
+        <div className="blob blob-2"></div>
+      </div>
       <Sidebar 
         history={history} 
         setMessages={setMessages} 
