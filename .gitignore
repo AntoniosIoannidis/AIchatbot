@@ -1,9 +1,14 @@
-﻿# Secrets
+﻿# Secrets and Env
 .env
 .env.local
 .env.*
 .env.backend
 *.env
+.env*
+secrets.json
+credentials.json
+*.pem
+*.key
 
 # Python
 __pycache__/
