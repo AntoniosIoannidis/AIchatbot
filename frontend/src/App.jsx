@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -8,14 +8,9 @@ import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 
-// --- Configuration ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-console.log('SUPABASE_URL:', SUPABASE_URL);
-console.log('SUPABASE_ANON_KEY exists:', !!SUPABASE_ANON_KEY);
-
-// Fail-safe client initialization
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
   try {
@@ -29,13 +24,11 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY);
-  const [darkMode, setDarkMode] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -45,24 +38,15 @@ export default function App() {
       setLoading(false); 
       return; 
     }
-    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-    
     return () => subscription?.unsubscribe();
   }, [configError]);
-
-  useEffect(() => {
-    // Basic body styles are now in App.css
-    document.body.className = 'custom-scrollbar';
-    console.log("Security Verified: History purged and environment protected.");
-  }, []);
 
   useEffect(() => {
     if (session) fetchHistory();
@@ -120,43 +104,30 @@ export default function App() {
       }
       fetchHistory();
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'bot', content: "Connection lost." }]);
+      setMessages(prev => [...prev, { role: 'bot', content: "JimyAI Connection Error. Please try again." }]);
     } finally { setIsTyping(false); }
   };
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-[#212121]">
-       <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+    <div className="h-screen flex items-center justify-center bg-[#020617]">
+       <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
     </div>
   );
 
   if (configError) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[#212121] text-center p-6">
-      <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20">
-        <AlertCircle className="text-red-500" size={32} />
-      </div>
-      <h1 className="text-xl font-bold text-white mb-2">Configuration Missing</h1>
-      <p className="text-slate-400 max-w-sm text-sm mb-8 leading-relaxed">
-        The VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables are missing. 
-        Please check your local .env or Vercel settings and redeploy.
-      </p>
-      <button 
-        onClick={() => window.location.reload()}
-        className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-xs tracking-widest uppercase"
-      >
-        Retry Connection
-      </button>
+    <div className="h-screen flex flex-col items-center justify-center bg-[#020617] text-white p-10 text-center">
+      <AlertCircle className="text-red-500 w-16 h-16 mb-4" />
+      <h1 className="text-2xl font-bold">System Configuration Missing</h1>
+      <p className="text-slate-400 mt-2">Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.</p>
     </div>
   );
 
   if (!session) return <Auth supabase={supabase} />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#020617] relative">
-      <div className="aura-bg">
-        <div className="blob"></div>
-        <div className="blob blob-2"></div>
-      </div>
+    <div className="app-container">
+      <div className="luxury-bg"></div>
+      
       <Sidebar 
         history={history} 
         setMessages={setMessages} 
@@ -173,10 +144,6 @@ export default function App() {
         setInput={setInput}
         handleSendMessage={handleSendMessage}
         isTyping={isTyping}
-        isListening={isListening}
-        toggleListening={() => setIsListening(!isListening)}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         selectedImage={selectedImage}
@@ -188,4 +155,3 @@ export default function App() {
     </div>
   );
 }
-

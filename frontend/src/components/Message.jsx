@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion } from 'framer-motion';
-import { Copy, Check, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Copy, Check, Volume2, VolumeX, Sparkles, User } from 'lucide-react';
 
 export default function Message({ role, content, image }) {
   const isUser = role === 'user';
@@ -31,50 +31,46 @@ export default function Message({ role, content, image }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
     >
-      <div className={`msg-bubble ${isUser ? 'msg-user' : 'msg-bot'}`}>
+      <div className={`bubble ${isUser ? 'bubble-user' : 'bubble-bot'}`}>
         {!isUser && (
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={12} className="text-blue-400" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-400/80">JimyAI</span>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+              <Sparkles size={12} className="text-indigo-400" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">JimyAI</span>
           </div>
         )}
 
         {image && (
           <div className="mb-4">
-            <img src={image} className="max-w-full rounded-2xl border border-white/10 shadow-lg" alt="attachment" />
+            <img src={image} className="max-w-full rounded-2xl border border-white/10 shadow-xl" alt="attachment" />
           </div>
         )}
         
-        <div className="prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:my-4">
+        <div className="prose prose-invert max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {content}
           </ReactMarkdown>
         </div>
 
         {!isUser && content === '' && (
-          <div className="flex space-x-2 items-center mt-2 py-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
+          <div className="flex space-x-2 items-center py-2">
+            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
           </div>
         )}
 
         {!isUser && content && (
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/5">
-            <button 
-              onClick={handleCopy}
-              className="p-1.5 text-slate-400 hover:text-white transition-colors"
-            >
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5">
+            <button onClick={handleCopy} className="text-slate-400 hover:text-white transition-all">
               {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             </button>
-            <button 
-              onClick={handleSpeak}
-              className="p-1.5 text-slate-400 hover:text-white transition-colors"
-            >
+            <button onClick={handleSpeak} className="text-slate-400 hover:text-white transition-all">
               {isSpeaking ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={14} />}
             </button>
           </div>
