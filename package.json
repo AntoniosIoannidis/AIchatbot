@@ -1,1 +1,7 @@
-﻿{ "name": "aichatbot", "version": "1.0.0", "scripts": { "build": "cd frontend && npm install && npm run build" } }
+{
+  "name": "aichatbot",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}
