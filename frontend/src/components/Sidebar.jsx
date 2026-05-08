@@ -41,19 +41,27 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
     <AnimatePresence>
       {sidebarOpen && (
         <motion.aside
-          initial={{ x: -260, opacity: 0 }}
+          initial={{ x: -280, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -260, opacity: 0 }}
+          exit={{ x: -280, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-y-0 left-0 w-[260px] bg-[#171717] z-50 flex flex-col p-3"
+          className="fixed inset-y-0 left-0 w-[280px] bg-[#020617] z-50 flex flex-col p-4 border-r border-white/5"
         >
+          {/* Logo / Brand */}
+          <div className="flex items-center gap-3 px-2 mb-8">
+             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+                <Bot size={18} className="text-white" />
+             </div>
+             <span className="text-lg font-bold text-white tracking-tight">JimyAI</span>
+          </div>
+
           {/* New Chat Button */}
           <button
             onClick={() => { setMessages([]); setSidebarOpen(false); }}
-            className="flex items-center gap-3 w-full p-3 rounded-md text-white text-sm hover:bg-[#2f2f2f] transition-colors border border-white/10 mb-2"
+            className="flex items-center gap-3 w-full p-4 rounded-2xl text-white text-sm bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/10 transition-all mb-6 group"
           >
-            <Plus size={16} />
-            <span className="font-medium">New chat</span>
+            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+            <span className="font-semibold">New Session</span>
           </button>
 
           {/* History */}

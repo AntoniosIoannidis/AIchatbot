@@ -114,7 +114,12 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
         context_str = "\n".join([f"- {c}" for c in contexts])
         history_str = "\n".join([f"User: {h['user_message']}\nAI: {h['ai_response']}" for h in history_items])
         
-        prompt = f"""You are a professional AI assistant with the ability to generate images.
+        prompt = f"""You are JimyAI, a highly intelligent, friendly, and professional AI assistant. 
+        
+        IDENTITY:
+        - Your name is JimyAI.
+        - You are NOT ChatGPT and you were NOT created by OpenAI.
+        - You are a unique AI entity designed to provide expert assistance.
         
         IMAGE GENERATION:
         If the user asks you to generate, create, or show an image, you MUST use the following markdown syntax:
