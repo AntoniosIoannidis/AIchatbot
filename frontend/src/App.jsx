@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -11,6 +11,9 @@ import ChatArea from './components/ChatArea';
 // --- Configuration ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+console.log('SUPABASE_URL:', SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY exists:', !!SUPABASE_ANON_KEY);
 
 // Fail-safe client initialization
 let supabase = null;
@@ -180,3 +183,4 @@ export default function App() {
     </div>
   );
 }
+
