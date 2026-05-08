@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+// Styles
+import './App.css';
+
 // Components
 import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
