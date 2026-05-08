@@ -34,18 +34,18 @@ export default function Message({ role, content, image }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`w-full py-6 ${!isUser ? 'bg-[#212121]' : ''} group`}
+      className={`w-full py-8 ${!isUser ? 'bg-white/5 border-y border-white/5' : ''} group`}
     >
-      <div className="max-w-3xl mx-auto flex gap-4 md:gap-6 px-4">
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border border-white/10 ${
-          isUser ? 'bg-[#ececec] text-black' : 'bg-transparent text-white'
+      <div className="max-w-3xl mx-auto flex gap-4 md:gap-6 px-6">
+        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${
+          isUser ? 'bg-white text-black' : 'bg-blue-600 text-white border-blue-400/20 shadow-lg shadow-blue-500/20'
         }`}>
-          {isUser ? <User size={14} /> : <Bot size={18} />}
+          {isUser ? <User size={18} /> : <Bot size={20} />}
         </div>
         
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="text-sm font-bold text-[#ececec] mb-1">
-            {isUser ? 'You' : 'ChatGPT'}
+          <div className={`text-xs font-bold uppercase tracking-widest mb-2 ${isUser ? 'text-slate-400' : 'text-blue-400'}`}>
+            {isUser ? 'You' : 'JimyAI'}
           </div>
 
           {image && (
