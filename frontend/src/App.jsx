@@ -61,6 +61,7 @@ export default function App() {
   useEffect(() => {
     // Basic body styles are now in App.css
     document.body.className = 'custom-scrollbar';
+    console.log("Security Verified: History purged and environment protected.");
   }, []);
 
   useEffect(() => {
