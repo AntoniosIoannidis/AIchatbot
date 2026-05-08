@@ -146,7 +146,7 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
 
         # 3. Stream
         response = client.models.generate_content_stream(
-            model="models/gemini-2.0-flash",
+            model="models/gemini-1.5-flash-latest",
             contents=contents
         )
         
