@@ -81,7 +81,7 @@ def get_embedding(text: str) -> List[float]:
     """Uses new Google GenAI Embedding API."""
     try:
         result = client.models.embed_content(
-            model="text-embedding-004",
+            model="models/text-embedding-004",
             contents=text,
             config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
         )
