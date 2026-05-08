@@ -81,7 +81,7 @@ def get_embedding(text: str) -> List[float]:
     """Uses new Google GenAI Embedding API."""
     try:
         result = client.models.embed_content(
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-2",
             contents=text,
             config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
         )
@@ -141,7 +141,7 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
 
         # 3. Stream
         response = client.models.generate_content_stream(
-            model="gemini-1.5-flash",
+            model="models/gemini-2.0-flash",
             contents=contents
         )
         

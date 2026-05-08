@@ -34,7 +34,7 @@ def get_google_embedding(text: str) -> List[float]:
     """Uses Google GenAI Embedding API (768 dimensions)."""
     try:
         res = client.models.embed_content(
-            model="text-embedding-004",
+            model="models/gemini-embedding-2",
             contents=text,
             config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         )
