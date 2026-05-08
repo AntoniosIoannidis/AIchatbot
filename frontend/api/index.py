@@ -22,7 +22,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv(override=True)
+backend_env_path = os.path.join(os.path.dirname(__file__), "..", ".env.backend")
+if os.path.exists(backend_env_path):
+    load_dotenv(backend_env_path, override=True)
+else:
+    load_dotenv(override=True)
 
 # Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
