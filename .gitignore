@@ -1,12 +1,14 @@
-# Secrets
+﻿# Secrets
 .env
 .env.local
-.env.*.local
+.env.*
+.env.backend
+*.env
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 venv/
 .venv/
 
