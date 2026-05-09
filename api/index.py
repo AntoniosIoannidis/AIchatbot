@@ -146,7 +146,7 @@ async def stream_gemini_response(question: str, contexts: List[str], user_id: st
 
         # 3. Stream
         response = client.models.generate_content_stream(
-            model="models/gemini-1.5-flash-latest",
+            model="gemini-flash-latest",
             contents=contents
         )
         
@@ -193,7 +193,7 @@ async def scrape_url(request: ScrapeRequest, user = Depends(get_current_user)):
         all_upserts = []
         for chunk in chunks:
             res = client.models.embed_content(
-                model="text-embedding-004",
+                model="models/gemini-embedding-2",
                 contents=chunk,
                 config=genai.types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
             )
