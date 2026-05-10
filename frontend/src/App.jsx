@@ -27,7 +27,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY);
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([]);

@@ -97,7 +97,7 @@ export default function ChatArea({
           <button 
             type="button"
             onClick={() => fileInputRef.current.click()}
-            className="flex items-center justify-center w-10 h-10 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+            className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition-all"
             title="Upload Image"
           >
             <ImageIcon size={20} />
