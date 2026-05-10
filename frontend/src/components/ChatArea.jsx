@@ -90,7 +90,7 @@ export default function ChatArea({
                 reader.readAsDataURL(file);
               }
             }} 
-            className="hidden" 
+            style={{ display: 'none' }} 
             accept="image/*" 
           />
           
