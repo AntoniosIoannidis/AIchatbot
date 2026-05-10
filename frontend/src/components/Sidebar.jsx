@@ -49,21 +49,39 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           />
           <motion.aside
-            initial={{ x: -280, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -280, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            initial={{ x: -280 }}
+            animate={{ x: 0 }}
+            exit={{ x: -280 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 240 }}
             className="fixed inset-y-0 left-0 w-[280px] bg-[#020617] z-50 flex flex-col p-4 border-r border-white/5"
           >
           {/* Logo / Brand */}
-          <div className="flex items-center gap-3 px-2 mb-8">
-             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 border border-white/10">
-                <span className="text-xl font-black text-white italic">J</span>
+          <div className="flex items-center justify-between px-2 mb-8">
+             <div className="flex items-center gap-3">
+               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 border border-white/10">
+                  <span className="text-xl font-black text-white italic">J</span>
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-lg font-bold text-white tracking-tight leading-none">JimyAI</span>
+                 <span className="text-[10px] font-medium text-indigo-400 uppercase tracking-widest mt-1">Intelligence</span>
+               </div>
              </div>
-             <div className="flex flex-col">
-               <span className="text-lg font-bold text-white tracking-tight leading-none">JimyAI</span>
-               <span className="text-[10px] font-medium text-indigo-400 uppercase tracking-widest mt-1">Intelligence</span>
-             </div>
+             
+             <button 
+               onClick={() => setSidebarOpen(false)}
+               className="p-2 text-slate-500 hover:text-white transition-colors lg:hidden"
+             >
+               <X size={20} />
+             </button>
+             
+             <button 
+               onClick={() => setSidebarOpen(false)}
+               className="hidden lg:flex p-2 text-slate-500 hover:text-white transition-colors"
+             >
+               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+                 <span className="text-xs font-black italic">J</span>
+               </div>
+             </button>
           </div>
 
           {/* New Chat Button */}

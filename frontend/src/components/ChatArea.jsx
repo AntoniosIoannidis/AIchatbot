@@ -28,9 +28,9 @@ export default function ChatArea({
       {!sidebarOpen && (
         <button 
           onClick={() => setSidebarOpen(true)}
-          className="absolute top-[34px] left-8 p-2 text-slate-400 hover:text-white transition-all z-50 bg-white/5 rounded-xl border border-white/5 backdrop-blur-md"
+          className="absolute top-8 left-8 flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-600/20 hover:from-indigo-500/40 hover:to-purple-600/40 text-white transition-all z-50 border border-white/10 backdrop-blur-xl shadow-xl group"
         >
-          <Command size={18} />
+          <span className="text-xl font-black italic group-hover:scale-110 transition-transform">J</span>
         </button>
       )}
 
