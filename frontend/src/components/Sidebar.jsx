@@ -132,6 +132,7 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
             </div>
           </div>
         </motion.aside>
+        </>
       )}
     </AnimatePresence>
   );
