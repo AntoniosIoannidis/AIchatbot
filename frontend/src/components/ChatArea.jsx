@@ -18,6 +18,9 @@ export default function ChatArea({
     <main className="chat-stage">
       {/* Brand Identity */}
       <div className="brand-header">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-indigo-500/40 border border-white/10 mb-2">
+           <span className="text-2xl font-black text-white italic">J</span>
+        </div>
         <span className="brand-name">JimyAI</span>
         <span className="brand-tag">Premium Intelligence</span>
       </div>

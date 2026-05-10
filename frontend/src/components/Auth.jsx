@@ -55,10 +55,10 @@ export default function Auth({ supabase }) {
           <div className="text-center mb-12">
             <motion.div 
               whileHover={{ rotate: 5, scale: 1.1 }}
-              className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-400 p-[1px] mb-8 shadow-2xl shadow-blue-500/20"
+              className="inline-flex items-center justify-center w-24 h-24 rounded-[2rem] bg-gradient-to-br from-indigo-500 via-purple-600 to-blue-500 p-[1px] mb-8 shadow-2xl shadow-indigo-500/30"
             >
-              <div className="w-full h-full bg-[#05070a] rounded-[1.4rem] flex items-center justify-center">
-                <Bot size={36} className="text-blue-400" />
+              <div className="w-full h-full bg-[#05070a] rounded-[1.9rem] flex items-center justify-center">
+                <span className="text-4xl font-black text-white italic">J</span>
               </div>
             </motion.div>
             <h1 className="text-4xl font-black text-white mb-3 tracking-tighter flex items-center justify-center">

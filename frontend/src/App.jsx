@@ -27,7 +27,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([]);
@@ -128,7 +128,7 @@ export default function App() {
   if (!session) return <Auth supabase={supabase} />;
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${sidebarOpen ? 'sidebar-visible' : ''}`}>
       <div className="luxury-bg"></div>
       
       <Sidebar 

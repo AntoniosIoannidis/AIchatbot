@@ -47,7 +47,7 @@ export default function Message({ role, content, image }) {
 
         {image && (
           <div className="mb-4">
-            <img src={image} className="max-w-full rounded-2xl border border-white/10 shadow-xl" alt="attachment" />
+            <img src={image} className="max-w-[400px] w-full rounded-2xl border border-white/10 shadow-xl" alt="attachment" />
           </div>
         )}
         

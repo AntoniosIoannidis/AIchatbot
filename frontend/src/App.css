@@ -242,3 +242,73 @@ body {
 .prose code {
   color: #818cf8;
 }
+
+/* --- MOBILE OPTIMIZATION --- */
+@media (max-width: 768px) {
+  .content-mount {
+    padding: 0 12px;
+  }
+
+  .message-list {
+    padding: 80px 0 120px 0;
+    gap: 16px;
+  }
+
+  .bubble {
+    max-width: 92%;
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .input-dock {
+    bottom: 20px;
+    padding: 0 10px;
+  }
+
+  .input-pill {
+    padding: 6px 10px 6px 16px;
+    gap: 8px;
+  }
+
+  .input-field {
+    font-size: 0.9rem;
+    padding: 8px 0;
+  }
+
+  .brand-header {
+    top: 20px;
+  }
+
+  .brand-name {
+    font-size: 1.1rem;
+  }
+
+  .action-btn {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-header {
+    display: none; /* Hide header on very small screens to save space */
+  }
+  
+  .message-list {
+    padding-top: 40px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .app-container.sidebar-visible .chat-stage {
+    padding-left: 280px;
+  }
+  
+  .app-container.sidebar-visible .input-dock {
+    padding-left: 280px;
+  }
+  
+  .chat-stage, .input-dock {
+    transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
