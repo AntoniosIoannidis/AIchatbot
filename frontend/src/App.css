@@ -104,23 +104,55 @@ body {
   gap: 24px;
 }
 
-/* ... existing scrollbar and bubble styles ... */
-
-.message-list::-webkit-scrollbar {
-  width: 0px;
+/* --- CUSTOM SCROLLBAR --- */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
 
-.bubble {
-  max-width: 85%;
-  padding: 1.25rem 1.75rem;
-  border-radius: 28px;
-  position: relative;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0.95rem;
-  line-height: 1.6;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* ... existing bubble-user, bubble-bot, input-dock, etc. ... */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* --- PROSE OVERRIDES --- */
+.prose {
+  color: var(--text-main) !important;
+}
+
+.prose pre {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.prose code {
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.prose p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose ul, .prose ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Ensure syntax highlighter looks good */
+.syntax-highlighter {
+  font-family: 'Fira Code', 'JetBrains Mono', monospace !important;
+}
 
 
 .bubble-user {
@@ -239,18 +271,6 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.3em;
   color: var(--primary);
-}
-
-/* --- PROSE OVERRIDES --- */
-.prose pre {
-  background: #000 !important;
-  border-radius: 16px !important;
-  border: 1px solid var(--glass-border) !important;
-  padding: 20px !important;
-}
-
-.prose code {
-  color: #818cf8;
 }
 
 /* --- MOBILE OPTIMIZATION --- */

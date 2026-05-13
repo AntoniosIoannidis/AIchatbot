@@ -1,7 +1,12 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MessageSquare, LogOut, X, User, Bot, Globe, Loader2, CheckCircle, Compass } from 'lucide-react';
+import { 
+  Plus, MessageSquare, LogOut, X, Globe, Loader2, 
+  Trash2, ChevronLeft, User, Sparkles, LayoutDashboard 
+} from 'lucide-react';
 import axios from 'axios';
+import { format, isToday, isYesterday, subDays, isAfter } from 'date-fns';
+import { toast } from 'sonner';
 
 export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarOpen, session, supabase, fetchHistory }) {
   const [scrapeUrl, setScrapeUrl] = useState('');
@@ -15,8 +20,9 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
       });
       fetchHistory();
       setMessages([]);
+      toast.success("History cleared");
     } catch (err) {
-      console.error("Failed to clear history:", err);
+      toast.error("Failed to clear history");
     }
   };
 
@@ -29,13 +35,32 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       setScrapeUrl('');
-      alert("Context injected successfully!");
+      toast.success("Context injected successfully!");
     } catch (err) {
-      alert("Failed to inject context.");
+      toast.error("Failed to inject context.");
     } finally {
       setIsScraping(false);
     }
   };
+
+  const groupedHistory = useMemo(() => {
+    const groups = {
+      Today: [],
+      Yesterday: [],
+      'Last 7 Days': [],
+      Older: []
+    };
+
+    history.forEach(chat => {
+      const date = new Date(chat.created_at || Date.now());
+      if (isToday(date)) groups.Today.push(chat);
+      else if (isYesterday(date)) groups.Yesterday.push(chat);
+      else if (isAfter(date, subDays(new Date(), 7))) groups['Last 7 Days'].push(chat);
+      else groups.Older.push(chat);
+    });
+
+    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+  }, [history]);
 
   return (
     <AnimatePresence>
@@ -46,108 +71,125 @@ export default function Sidebar({ history, setMessages, sidebarOpen, setSidebarO
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-40 lg:hidden"
           />
           <motion.aside
             initial={{ x: -280 }}
             animate={{ x: 0 }}
             exit={{ x: -280 }}
             transition={{ type: 'spring', damping: 25, stiffness: 240 }}
-            className="fixed inset-y-0 left-0 w-[280px] bg-[#020617] z-50 flex flex-col p-4 border-r border-white/5"
+            className="fixed inset-y-0 left-0 w-[280px] bg-[#020617] z-50 flex flex-col p-4 border-r border-white/5 shadow-2xl"
           >
           {/* Logo / Brand */}
-          <div className="flex items-center justify-between px-2 mb-8">
+          <div className="flex items-center justify-between px-2 mb-8 mt-2">
              <div className="flex items-center gap-3">
                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 border border-white/10">
                   <span className="text-xl font-black text-white italic">J</span>
                </div>
                <div className="flex flex-col">
                  <span className="text-lg font-bold text-white tracking-tight leading-none">JimyAI</span>
-                 <span className="text-[10px] font-medium text-indigo-400 uppercase tracking-widest mt-1">Intelligence</span>
+                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mt-1">Intelligence</span>
                </div>
              </div>
              
              <button 
                onClick={() => setSidebarOpen(false)}
-               className="p-2 text-slate-500 hover:text-white transition-colors lg:hidden"
+               className="p-2 text-slate-500 hover:text-white transition-colors"
              >
-               <X size={20} />
-             </button>
-             
-             <button 
-               onClick={() => setSidebarOpen(false)}
-               className="hidden lg:flex p-2 text-slate-500 hover:text-white transition-colors"
-             >
-               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
-                 <span className="text-xs font-black italic">J</span>
-               </div>
+               <ChevronLeft size={20} />
              </button>
           </div>
 
           {/* New Chat Button */}
           <button
             onClick={() => { setMessages([]); setSidebarOpen(false); }}
-            className="flex items-center gap-3 w-full p-4 rounded-2xl text-white text-sm bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/10 transition-all mb-6 group"
+            className="flex items-center gap-3 w-full p-4 rounded-2xl text-white text-sm bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all mb-6 group"
           >
             <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-            <span className="font-semibold">New Session</span>
+            <span className="font-bold">New Session</span>
           </button>
 
           {/* History */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="mt-4 mb-2 px-3 flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#b4b4b4] uppercase tracking-wider">Recent</span>
-              {history.length > 0 && (
-                <button 
-                  onClick={handleClearHistory}
-                  className="text-[11px] font-medium text-[#b4b4b4] hover:text-white transition-colors"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="space-y-1">
-              {history.map((chat, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setMessages([{role: 'user', content: chat.user_message}, {role: 'bot', content: chat.ai_response}]);
-                    setSidebarOpen(false);
-                  }}
-                  className="w-full text-left p-3 rounded-md text-sm text-[#ececec] hover:bg-[#2f2f2f] transition-all group flex items-center gap-3 truncate"
-                >
-                  <MessageSquare size={16} className="shrink-0 text-[#b4b4b4]" />
-                  <span className="truncate">{chat.user_message}</span>
-                </button>
-              ))}
-            </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+            {groupedHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 opacity-20 text-center px-4">
+                 <MessageSquare size={32} className="mb-2" />
+                 <span className="text-xs font-medium">Your intelligence history will appear here</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {groupedHistory.map(([group, items]) => (
+                  <div key={group}>
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 px-3">
+                      {group}
+                    </h3>
+                    <div className="space-y-1">
+                      {items.map((chat, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setMessages([
+                              {role: 'user', content: chat.user_message}, 
+                              {role: 'bot', content: chat.ai_response}
+                            ]);
+                            setSidebarOpen(false);
+                          }}
+                          className="w-full text-left p-3 rounded-xl text-xs text-slate-300 hover:bg-white/5 transition-all group flex items-center gap-3 truncate border border-transparent hover:border-white/5"
+                        >
+                          <MessageSquare size={14} className="shrink-0 text-slate-500 group-hover:text-indigo-400" />
+                          <span className="truncate">{chat.user_message}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Bottom Tools & User */}
-          <div className="mt-auto pt-3 border-t border-white/10 space-y-2">
-            <form onSubmit={handleScrape} className="relative">
+          <div className="mt-auto pt-4 border-t border-white/10 space-y-3">
+            <form onSubmit={handleScrape} className="relative group">
                <input 
                   value={scrapeUrl}
                   onChange={e => setScrapeUrl(e.target.value)}
-                  placeholder="Inject URL..."
-                  className="w-full bg-transparent border border-white/10 rounded-md py-2 pl-3 pr-8 text-sm text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-[#676767]"
+                  placeholder="Inject knowledge URL..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-3 pr-10 text-xs text-white outline-none focus:border-indigo-500/50 transition-all placeholder:text-slate-600"
                 />
-                <button className="absolute right-2 top-1/2 -translate-y-1/2 text-[#b4b4b4] hover:text-white">
+                <button 
+                  disabled={isScraping}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400 transition-colors"
+                >
                   {isScraping ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
                 </button>
             </form>
 
-            <div className="flex items-center justify-between p-2 rounded-md hover:bg-[#2f2f2f] transition-colors group cursor-pointer">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 group">
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-[10px] font-black text-white shrink-0 shadow-lg">
                   {session.user.email[0].toUpperCase()}
                 </div>
-                <span className="text-sm font-medium text-white truncate">{session.user.email}</span>
+                <div className="flex flex-col overflow-hidden">
+                   <span className="text-[11px] font-bold text-white truncate">{session.user.email}</span>
+                   <span className="text-[9px] font-medium text-slate-500 uppercase tracking-wider">Premium User</span>
+                </div>
               </div>
-              <button onClick={() => supabase.auth.signOut()} className="p-2 text-[#b4b4b4] hover:text-red-400 rounded-md transition-all">
+              <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                title="Logout"
+              >
                 <LogOut size={16} />
               </button>
             </div>
+
+            <button 
+              onClick={handleClearHistory}
+              className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-bold text-slate-500 hover:text-red-400 transition-colors uppercase tracking-widest"
+            >
+               <Trash2 size={12} />
+               Clear Memory
+            </button>
           </div>
         </motion.aside>
         </>

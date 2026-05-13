@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { Toaster, toast } from 'sonner';
 
 // Styles
 import './App.css';
@@ -14,14 +15,10 @@ import ChatArea from './components/ChatArea';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase = null;
-if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-  try {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } catch (e) {
-    console.error("Supabase initialization failed:", e);
-  }
-}
+// Initialize Supabase only once
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+  : null;
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -34,28 +31,40 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  
   const fileInputRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
+  // Initialize Auth
   useEffect(() => {
     if (configError || !supabase) { 
       setLoading(false); 
       return; 
     }
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+
     return () => subscription?.unsubscribe();
   }, [configError]);
 
-  useEffect(() => {
-    if (session) fetchHistory();
-  }, [session]);
-
-  const fetchHistory = async () => {
+  // Fetch History
+  const fetchHistory = useCallback(async () => {
+    if (!session) return;
     try {
       const { data } = await axios.get(`/api/history`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
@@ -64,51 +73,100 @@ export default function App() {
     } catch (err) {
       console.error("Failed to fetch history:", err);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (session) fetchHistory();
+  }, [session, fetchHistory]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!input.trim() && !selectedImage) || isTyping) return;
+
     const currentInput = input;
     const currentImage = imagePreview;
-    setMessages(prev => [...prev, { role: 'user', content: currentInput, image: currentImage }]);
-    setInput(''); setSelectedImage(null); setImagePreview(null); setIsTyping(true);
+
+    // Add user message to UI
+    const userMsg = { role: 'user', content: currentInput, image: currentImage };
+    setMessages(prev => [...prev, userMsg]);
+    
+    // Reset inputs
+    setInput('');
+    setSelectedImage(null);
+    setImagePreview(null);
+    setIsTyping(true);
+
+    // Cancel any existing request
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+
     try {
       const response = await fetch(`/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },     
-        body: JSON.stringify({ message: currentInput, image_data: currentImage })
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session.access_token}` 
+        },     
+        body: JSON.stringify({ message: currentInput, image_data: currentImage }),
+        signal: abortControllerRef.current.signal
       });
+
       if (!response.ok) throw new Error('API request failed');
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let aiContent = '';
+      
+      // Initialize bot message
       setMessages(prev => [...prev, { role: 'bot', content: '' }]);
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
+
+        const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n');
+        
         for (const line of lines) {
           if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+            
             try {
-              const data = JSON.parse(line.slice(6));
+              const data = JSON.parse(jsonStr);
               if (data.text) {
                 aiContent += data.text;
                 setMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1].content = aiContent;
-                  return updated;
+                  const lastMsg = updated[updated.length - 1];
+                  if (lastMsg && lastMsg.role === 'bot') {
+                    lastMsg.content = aiContent;
+                  }
+                  return [...updated];
                 });
               }
-            } catch (e) {}
+            } catch (e) {
+              console.warn("JSON parse error in stream:", e);
+            }
           }
         }
       }
+      
+      // Refresh history after successful message
       fetchHistory();
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'bot', content: "JimyAI Connection Error. Please try again." }]);
-    } finally { setIsTyping(false); }
+      if (err.name === 'AbortError') return;
+      
+      console.error("Chat error:", err);
+      toast.error("JimyAI Connection Error. Please try again.");
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        content: "I'm having trouble connecting to the neural network. Please check your connection and try again." 
+      }]);
+    } finally { 
+      setIsTyping(false); 
+      abortControllerRef.current = null;
+    }
   };
 
   if (loading) return (
@@ -125,10 +183,16 @@ export default function App() {
     </div>
   );
 
-  if (!session) return <Auth supabase={supabase} />;
+  if (!session) return (
+    <>
+      <Toaster position="top-center" theme="dark" />
+      <Auth supabase={supabase} />
+    </>
+  );
 
   return (
     <div className={`app-container ${sidebarOpen ? 'sidebar-visible' : ''}`}>
+      <Toaster position="top-center" theme="dark" richColors />
       <div className="luxury-bg"></div>
       
       <Sidebar 
