@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Image as ImageIcon, X, ArrowDown, Sparkles, Command } from 'lucide-react';
+import { Send, Image as ImageIcon, X, ArrowDown, Sparkles, Command, Menu } from 'lucide-react';
 import Message from './Message';
 
 export default function ChatArea({ 
@@ -29,6 +29,15 @@ export default function ChatArea({
 
   return (
     <main className="chat-stage">
+      {/* Sidebar Toggle Button (Top Left) */}
+      <button 
+        onClick={() => setSidebarOpen(true)}
+        className="menu-toggle-btn"
+        title="Open Sidebar"
+      >
+        <Menu size={20} />
+      </button>
+
       {/* Brand Identity */}
       <div className="brand-header">
         <motion.div 
@@ -41,15 +50,6 @@ export default function ChatArea({
         <span className="brand-name">JimyAI</span>
         <span className="brand-tag">Premium Intelligence</span>
       </div>
-
-      {!sidebarOpen && (
-        <button 
-          onClick={() => setSidebarOpen(true)}
-          className="absolute top-8 left-8 flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-600/20 hover:from-indigo-500/40 hover:to-purple-600/40 text-white transition-all z-50 border border-white/10 backdrop-blur-xl shadow-xl group"
-        >
-          <span className="text-xl font-black italic group-hover:scale-110 transition-transform">J</span>
-        </button>
-      )}
 
       <div className="content-mount h-full">
         <div 
@@ -171,7 +171,7 @@ export default function ChatArea({
             disabled={(!input.trim() && !selectedImage) || isTyping}
             className="action-btn send-btn"
           >
-            {isTyping ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            <Send size={18} />
           </button>
         </form>
         
